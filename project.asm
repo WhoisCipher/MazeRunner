@@ -14,17 +14,263 @@
                     jmp main
 
 
-kbISR_GAME_hook:
+; /////////////////////////////////////////
+; // Keyboard Intrupt
+; //
+; // Input detection, 2 variations:
+; // - Menu
+; //    => Up/Down Arrow Keys (Change 
+; //       selections)
+; //    => Enter Key (Run Function Based
+; //       of current selections)
+; // - Game
+; //    => Movement of Player  (WASD)
+; //    => SuperMan Mode       (SpaceBar)
+; //    => Pause Game          (Esc)
+; /////////////////////////////////////////
+MenuSelection:  dw  0
+ENTER_flag:     dw  0
 
-kbISR_MENU_hook:
+upadateToZero:
+        push ax
+        mov word[MenuSelection], 0
+        pop ax
+        ret
+    ;   Scan-Code
+    ;   UP      0x48
+    ;   DOWN    0x50
+    ;   ENTER   0x1C
 
-timeISR_hook:
+kbISR_MENU:
+        push bp
+        mov bp, sp
+        pusha
+        
+        in al, 0x60
+        
+        ; UP-Arrow
+        cmp al, 0x48
+        je up
+
+        ; DOWN-Arrow
+        cmp al, 0x50
+        je down
+
+        ; ENTER
+        cmp al, 1C
+        je enter
+        jmp EOI
+
+    enter:
+        mov word[ENTER_flag], 1
+        jmp EOI
         
 
-; ----** GlobalFunctions **----
-;   void drawMenu()
-;   int getRand()
+    up: 
+        dec word[MenuSelection]
+        cmp word[MenuSelection], -1
+        jle _call_to_updateToZero
+        jmp update
 
+        
+    down:
+        inc byte[MenuSelection]
+        cmp word[MenuSelection], 1
+        jle _call_to_updateToZero
+        jmp upadte
+        
+
+    _call_to_updateToZero:
+        call upadateToZero
+    
+    update:
+        push word[MenuSelection]
+        call drawMenu
+    
+    EOI:
+        mov al, 0x20
+        out 0x20, al
+        
+        popa
+        pop bp
+        iret
+
+kbISR_GAME:
+
+kbISR_GAME_hook:
+        push bp
+        mov bp, sp
+        pusha
+
+        cli
+        xor ax, ax
+        mov ds, ax
+        mov word[4*8], kbISR_GAME
+        mov word[4*8+2], cs
+        sti
+
+        popa
+        pop bp
+        ret
+
+kbISR_MENU_hook:
+        push bp
+        mov bp, sp
+        pusha
+
+        cli
+        xor ax, ax
+        mov ds, ax
+        mov word[4*8], kbISR_MENU
+        mov word[4*8+2], cs
+        sti
+
+        popa
+        pop bp
+        ret
+
+
+; ////////////////////////////////////////////
+; // Timer Intrupt
+; // 
+; // Used to make the timer Work, Each time
+; // the IRQ-0 sets, the tick variable gets
+; // increased and 18 ticks approx to 1 sec
+; ////////////////////////////////////////////
+tick:           db  0
+game_running:   dw  0
+
+timerISR:
+        push bp
+        mov bp, sp
+        pusha
+        
+        cmp byte[game_running], 1
+        je _inc_TICK
+
+                cmp word[ENTER_flag], 1
+                je enterPressed
+                jmp _inc_TICK
+
+            enterPressed:
+                cmp word[MenuSelection], 0
+                je start
+
+                cmp word[MenuSelection], 1
+                je terminate
+    
+            start:    
+                call kbISR_GAME_hook
+                mov byte[game_running], 1
+                mov word[ENTER_flag], 0
+
+    _inc_TICK:
+        inc byte[tick]
+        
+        mov al, [tick]
+        cmp al, 18
+        jl done
+        
+        mov byte[tick], 0
+        inc byte[tick]
+
+    done:
+        mov al, 0x20
+        out 0x20, al
+
+        popa
+        pop bp
+        iret
+        
+
+timerISR_hook:
+        push bp
+        push ax
+        push ds
+        mov bp, sp
+
+        cli
+        xor ax, ax
+        mov ds, ax
+        mov word[4*8], timerISR
+        mov [4*8+2], cs
+        sti
+        
+        pop ax
+        pop ds
+        pop bp
+        ret
+
+; ----** GlobalFunctions **----
+;
+;   int     getRand()           ; return random value between 1-18
+;   
+;   void    drawMenu()
+;   void    clearScreen()
+;   void    setVideoMode()
+;   void    restoreTextMode()
+
+    ; @prams 
+    ;   bp+4 => Random Value to return
+getRand:
+        push bp
+        push ax
+
+        mov ax, [tick]
+        mov [bp+4]
+        
+        pop ax
+        pop bp
+        ret
+
+setVideoMode:
+        push bp
+        mov bp, sp
+        pusha
+
+        call clearScreen
+
+        mov ah, 0
+        mov al, 0x13
+        int 10h
+        
+        mov ax, 0xa000
+        mov es, ax
+        mov di, 0
+        
+        popa
+        pop bp
+        ret
+
+restoreTextMode:
+        push bp
+        mov bp, sp
+        pusha
+        
+        mov ah, 0
+        mov al, 0x03
+        int 10h
+
+        popa
+        pop bp
+        ret
+
+clearScreen:
+        push bp
+        mov bp, sp
+        pusha
+        
+        mov ah, 0x06
+        mov al, 24
+        mov bh, 0x07
+        mov cx, 0
+        mov dh, 0x24
+        mov dl, 0x79
+        int 10h
+
+        popa
+        pop bp
+        ret
 
 ; ///////////////////////////////////////////////////////////////////
 ; // Menu
@@ -62,7 +308,7 @@ drawMenu:
 ; ///////////////////////////////////////////////////////////////////
 Struct_GAMEHANDLER:
 
-    ; Private
+    ; Handles:
     ;   - Map
     ;   - Player
     ;   - Enemies
@@ -72,7 +318,6 @@ Struct_GAMEHANDLER:
     ;   - Score
     
     __init__:
-            call kbISR_GAME_hook
             call _init_MAP
     reset_same_MAP:
             call _init_PLAYER
@@ -80,12 +325,11 @@ Struct_GAMEHANDLER:
             call _init_COLLECTABLES
             call _init_TIMER
             call _init_SCORE
-
+    
     gameLoop:
             call _check_collision_PLAYER
             call _check_collision_ENEMIES
             call _check_COLLECTABLES
-            call _check_SCORE
             jmp gameLoop
     
     game_Over:
@@ -108,7 +352,7 @@ Struct_GAMEHANDLER:
 Struct_MAP:
     
     _init_MAP:
-
+            ret
 
 
 ; ///////////////////////////////////////////////////////////////////
@@ -123,11 +367,13 @@ Struct_MAP:
 Struct_ENEMIES:
     
     _init_ENEMIES:
+            ret
 
     collide_ENEMIES:
-        
-    _check_collision_ENEMIES:
+            ret
 
+    _check_collision_ENEMIES:
+            ret
 
 ; ///////////////////////////////////////////////////////////////////
 ; //    Player Structure
@@ -141,7 +387,8 @@ Struct_ENEMIES:
 Struct_PLAYER:
 
     _init_PLAYER:
-            
+            ret
+
     _check_collision_PLAYER:
             ; if collides with enemy
             jmp game_Over
@@ -149,6 +396,8 @@ Struct_PLAYER:
             ; if collides with Collectable
             ; pram -> collision with
             call _inc_SCORE
+
+            ret
 
 ; ///////////////////////////////////////////////////////////////////
 ; //    Collectables Structure
@@ -263,8 +512,7 @@ Struct_SCORE:
             
             pop bp
             ret
-
-
+    
         ; @prams
         ;   bp+4 => Collectables Score sent
     _inc_SCORE:
@@ -280,3 +528,16 @@ Struct_SCORE:
             ret 2
 
 main:
+        call setVideoMode
+        call kbISR_MENU_hook
+        call timerISR_hook
+        
+    startGame:
+        cmp byte[game_running], 0
+        je startGame
+        
+        call __init__
+
+    terminate:
+        mov ax, 4c00h
+        int 21h
