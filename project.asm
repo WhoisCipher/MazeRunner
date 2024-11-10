@@ -140,6 +140,38 @@ kbISR_MENU_hook:
 tick:           db  0
 game_running:   dw  0
 
+timeISR1:
+check_key:
+    mov ah, 0x00            ; AH=0 indicates key code in AL
+    int 0x16                ; Read the keypress
+    mov ah, 0x00            ; Clear AH
+
+    cmp al, 0x48            ; Check for Up Arrow key scan code (0x48)
+    je up_key_pressed
+
+    cmp al, 0x50            ; Check for Down Arrow key scan code (0x50)
+    je down_key_pressed
+
+    cmp al, 0x1C            ; Check for Enter key scan code (0x1C)
+    je enter_key_pressed
+
+    jmp check_key           ; Loop back if none matched
+
+up_key_pressed:
+    mov dx, msg_up          ; Point to "Up Arrow Pressed" message
+    mov word[es:0], 77
+    jmp check_key           ; Loop back
+
+down_key_pressed:
+    mov dx, msg_down        ; Point to "Down Arrow Pressed" message
+    mov word[es:0], 79
+    jmp check_key           ; Loop back
+
+enter_key_pressed:
+    mov dx, msg_enter       ; Point to "Enter Key Pressed" message
+    mov word[es:0], 78
+    jmp check_key 
+
 timerISR:
         push bp
         mov bp, sp
@@ -278,9 +310,28 @@ clearScreen:
 ; //        - play  - quit  - about
 ; //    Esthetics focused 
 ; ///////////////////////////////////////////////////////////////////
+    ; @Prams
+    ;   bp+4 => Selected Option
 drawMenu:
+        push bp
+        mov bp, sp
+        pusha
+    
+        mov ax, 0xA000
+        mov es, ax
+        
+        mov ax, [bp+4]
+        inc ax
+        mov bx, 320
+        mul bx
+        mov di, ax
+        mov cx, length                      ; Number of pixels
+        mov al, color                       ; Color to draw
+        rep stosb
 
-
+        popa
+        pop bp
+        ret 2
 
 ; ///////////////////////////////////////////////////////////////////
 ; // Game Handler
