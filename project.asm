@@ -28,6 +28,8 @@
 ; //    => SuperMan Mode       (SpaceBar)
 ; //    => Pause Game          (Esc)
 ; /////////////////////////////////////////
+orgKBISR_offest: dw 0
+orgKBISR_segment: dw 0
 MenuSelection:  dw  0
 ENTER_flag:     dw  0
 
@@ -36,8 +38,6 @@ ENTER_flag:     dw  0
     ;   DOWN    0x50
     ;   ENTER   0x1C
 kbISR_MENU:
-        push bp
-        mov bp, sp
         pusha
 
         in al, 0x60
@@ -53,48 +53,112 @@ kbISR_MENU:
 
         ; enter
         cmp ah, 0x1c
-        je enter1
+        je entr
 
-        jmp eoi
+        jmp EOI
 
-    enter1:
-        mov word[ENTER_flag], 1
-        jmp eoi
+    entr:
+        cmp word[MenuSelection], 1
+        je ExitGame
+        call clearScreen
+        call _init_MAP
+        call kbISR_GAME_hook
+        jmp EOI
 
     up: 
+        mov word[MenuSelection], 1
         push 1
         call updateMenuSelection
-        jmp eoi
-
+        jmp EOI
+    
+    ExitGame:
+        call restoreTextMode
+        mov ax, 0xb800
+        mov es, ax
+        mov ax, 0x720
+        mov cx, 2000
+        mov di, 0
+        rep stosw
+        call restoreISR
+        mov ax, 4c00h
+        int 21h
         
     down:
+        mov word[MenuSelection], 0
         push 0
         call updateMenuSelection
 
-    eoi:
+    EOI:
         mov al, 0x20
         out 0x20, al
         
         popa
-        pop bp
         iret
 
 kbISR_GAME:
+        pusha
+        
+        in al, 0x60
+        mov ah, al
+        
+        ;W
+        cmp ah, 0x11
+        je moveFwd
+        
+        ;A
+        cmp ah, 0x1E
+        je moveLeft
+
+        ;S
+        cmp ah, 0x1F
+        je moveDown
+
+        ;D
+        cmp ah, 0x20
+        je moveRight
+
+        jmp EOI2
+    
+    moveFwd:
+        call player_UP
+        jmp EOI2
+
+    moveDown:
+        call player_DOWN
+        jmp EOI2
+
+    moveRight:
+        call player_RIGHT
+        jmp EOI2
+
+    moveLeft:
+        call player_LEFT
+        jmp EOI2
+
+    EOI2:
+        mov al, 0x20
+        out 0x20, al
+
+        popa
+        iret
 
 kbISR_GAME_hook:
-        push bp
-        mov bp, sp
         pusha
 
         cli
         xor ax, ax
-        mov ds, ax
-        mov word[ds:4*9], kbISR_GAME
-        mov word[ds:4*9+2], cs
+        mov es, ax
+        
+        mov ax, [es:4*9]          
+        mov [orgKBISR_offest], ax
+        mov ax, [es:4*9+2]
+        mov [orgKBISR_segment], ax
+        
+        mov word[es:4*9], kbISR_GAME
+        mov word[es:4*9+2], cs
         sti
 
         popa
-        pop bp
         ret
 
 kbISR_MENU_hook:
@@ -105,6 +169,12 @@ kbISR_MENU_hook:
         cli
         xor ax, ax
         mov es, ax
+        
+        mov ax, [es:4*9]          
+        mov [orgKBISR_offest], ax
+        mov ax, [es:4*9+2]
+        mov [orgKBISR_segment], ax
+     
         mov word[es:4*9], kbISR_MENU
         mov [es:4*9+2], cs
         sti
@@ -113,6 +183,21 @@ kbISR_MENU_hook:
         pop bp
         ret
 
+restoreISR:
+        pusha
+        
+        cli
+        xor ax, ax
+        mov es, ax
+
+        mov ax, [orgKBISR_offest]
+        mov [es:4*9], ax
+        mov ax, [orgKBISR_segment]
+        mov [es:4*9+2], ax
+        sti
+
+        popa
+        ret
 
 ; ////////////////////////////////////////////
 ; // Timer Intrupt
@@ -122,30 +207,12 @@ kbISR_MENU_hook:
 ; // increased and 18 ticks approx to 1 sec
 ; ////////////////////////////////////////////
 tick:           db  0
-game_running:   dw  0
 
 timerISR:
         push bp
         mov bp, sp
         pusha
         
-        cmp byte[game_running], 1
-        je _inc_TICK
-
-                cmp word[ENTER_flag], 1
-                je enterPressed
-                jmp _inc_TICK
-
-            enterPressed:
-                cmp word[MenuSelection], 0
-                je start
-
-                cmp word[MenuSelection], 1
-
-            start:    
-                call kbISR_GAME_hook
-                mov byte[game_running], 1
-                mov word[ENTER_flag], 0
 
     _inc_TICK:
         inc byte[tick]
@@ -174,9 +241,9 @@ timerISR_hook:
 
         cli
         xor ax, ax
-        mov ds, ax
-        mov word[4*8], timerISR
-        mov [4*8+2], cs
+        mov es, ax
+        mov word[es:4*8], timerISR
+        mov [es:4*8+2], cs
         sti
         
         pop ax
@@ -1197,6 +1264,7 @@ Struct_GAMEHANDLER:
     ;   - Score
     
     __init__:
+            call clearScreen
             call _init_MAP
     reset_same_MAP:
             call _init_PLAYER
@@ -1204,21 +1272,9 @@ Struct_GAMEHANDLER:
             call _init_COLLECTABLES
             call _init_TIMER
             call _init_SCORE
+            
+            ret
     
-    gameLoop:
-            call _check_collision_PLAYER
-            call _check_collision_ENEMIES
-            call _check_COLLECTABLES
-            jmp gameLoop
-    
-    game_Over:
-            call _show_SCORE
-            jmp reset_same_MAP
-
-    level_UP:
-            call _show_SCORE
-            jmp __init__
-
 ; ///////////////////////////////////////////////////////////////////
 ; //    Map Structure
 ; //    Initializing the map in the memory
@@ -1229,10 +1285,102 @@ Struct_GAMEHANDLER:
 ; //    - Gets called once the game is initialized
 ; ///////////////////////////////////////////////////////////////////
 Struct_MAP:
+
+currentMAP:
+    db 0
     
+MAP1:
+    db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    db 1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,1,0,1
+    db 1,1,0,1,0,1,1,1,1,0,1,0,1,0,1,1,0,0,0,1
+    db 1,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1,1,1,0,1
+    db 1,0,1,0,1,1,0,1,0,1,0,1,1,1,0,0,0,0,1,1
+    db 1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1
+    db 1,1,1,1,1,0,1,1,1,0,1,1,0,1,0,1,0,1,1,1
+    db 1,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0,1,0,0,1
+    db 1,0,1,0,0,0,1,0,1,1,0,0,0,1,0,1,1,0,1,1
+    db 1,1,1,0,1,1,1,0,1,0,1,0,1,1,0,1,0,0,0,1
+    db 1,0,1,0,0,0,0,0,0,1,0,1,0,0,0,0,1,0,1,1
+    db 1,0,1,1,0,1,1,1,0,1,0,0,0,1,1,1,1,1,0,1
+    db 1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,1
+    db 1,1,0,0,1,0,1,1,1,1,1,1,1,0,1,0,1,0,0,1
+    db 1,0,1,0,0,0,1,0,0,0,1,0,0,0,1,1,1,0,0,1
+    db 1,0,1,0,1,1,0,1,1,0,1,0,0,1,0,1,0,1,1,1
+    db 1,0,0,1,0,0,0,0,0,0,1,1,0,0,0,0,1,0,0,1
+    db 1,1,1,1,1,0,1,0,1,0,0,0,0,0,0,0,0,0,1,1
+    db 1,0,0,0,1,0,0,0,1,1,1,1,0,0,0,0,0,0,2,1
+    db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+
+
     _init_MAP:
+            pusha
+            mov di, (20*320)+30
+            mov si, MAP1
+            mov cx, 20
+
+    rows:
+            push cx           ; Save current row counter
+            mov cx, 20         ; Set the column counter to 7
+
+        cols: 
+            lodsb             ; Load byte at [si] into AL and increment SI
+            cmp al, 2
+            je playerDrawer
+            cmp al, 1         ; Compare AL with 1
+            je wall           ; Jump to 'wall' if AL == 1
+            jmp floor         ; Otherwise, jump to 'floor'
+
+        playerDrawer:
+            mov [playerPos], di
+            push di
+            call drawPlayer
+            jmp next_pixel
+
+        wall:
+            push di
+            call drawTile
+            jmp next_pixel
+
+        floor:
+
+        next_pixel:
+            add di, 8
+            loop cols           ; Decrement CX and loop back if not zero
+
+            add di, 8*320-8*20
+            pop cx              ; Restore the row counter
+            loop rows           ; Decrement CX and loop back if not zero
+            
+
+            popa
             ret
 
+    drawTile:
+            push bp
+            mov bp, sp
+            pusha
+    
+            mov di, [bp+4]
+            mov cx, 8
+
+        wallLoop:
+            push cx
+            push di
+
+            mov cx, 8 
+            mov al, 2
+            cld
+            rep stosb
+
+            pop di
+            pop cx
+            add di, 320
+            loop wallLoop
+            
+    
+            popa
+            pop bp
+            ret 2
 
 ; ///////////////////////////////////////////////////////////////////
 ; //    Enemies Structure
@@ -1265,12 +1413,174 @@ Struct_ENEMIES:
 ; ///////////////////////////////////////////////////////////////////
 Struct_PLAYER:
 
+playerPos: dw 0
+
+player_SPRITE:
+    db 1,1,1,1,1,1,1,1
+    db 1,1,1,0,0,1,1,1
+    db 1,1,0,0,0,0,1,1
+    db 1,0,0,0,0,0,0,1
+    db 1,0,0,0,0,0,0,1
+    db 1,1,0,0,0,0,1,1
+    db 1,1,1,0,0,1,1,1
+    db 1,1,1,1,1,1,1,1
+    
+    clearPlayer:
+            push bp
+            mov bp, sp
+            pusha
+
+            mov di, [bp+4]
+            mov cx, 8
+        clearLoop:
+            push cx
+            push di
+            
+            mov cx, 8
+            mov al ,1
+            rep stosb
+            
+            pop di
+            pop cx
+            add di, 320
+            loop clearLoop
+
+            popa
+            pop bp
+            ret 2
+
+        ;@Prams
+        ; bp+4 => position
+    drawPlayer:
+            push bp
+            mov bp, sp
+            pusha
+            
+            mov di, [bp+4]
+            mov si, player_SPRITE
+            mov cx, 8
+
+    rows_PLAYER:
+            push cx
+            mov cx, 8
+
+        cols_PLAYER: 
+            lodsb
+            cmp al, 0
+            je fill           
+            jmp noFill
+
+        fill:
+            mov byte[es:di], 5
+            jmp next_pixl
+
+        noFill:
+
+        next_pixl:
+            inc di
+            loop cols_PLAYER
+
+            add di, 320-8
+            pop cx
+            loop rows_PLAYER
+
+            popa
+            pop bp
+            ret 2
+    
+    
+    player_UP:
+            pusha
+            mov di, [playerPos]
+            mov si, [playerPos]
+            sub si, 320
+            cmp byte[es:si], 2
+            je wallHitUp
+            sub di, 8*320
+            
+            push word[playerPos]
+            call clearPlayer
+
+            mov word[playerPos], di
+
+            push word[playerPos]
+            call drawPlayer
+
+        wallHitUp:
+            popa
+            ret
+
+    player_DOWN:
+            pusha
+
+            mov di, [playerPos]
+            add di, 8*320
+            mov si, di
+            add si, 320
+            cmp byte[es:si], 2
+            je wallHitDown
+            
+            push word[playerPos]
+            call clearPlayer
+
+            mov word[playerPos], di
+
+            push word[playerPos]
+            call drawPlayer
+
+        wallHitDown:
+            popa
+            ret
+
+    player_LEFT:
+            pusha
+
+            mov di, [playerPos]
+            mov si, [playerPos]
+            sub si, 1
+            cmp byte[es:si], 2
+            je wallHitLeft
+            sub di, 8
+
+            push word[playerPos]
+            call clearPlayer
+
+            mov word[playerPos], di
+
+            push word[playerPos]
+            call drawPlayer
+            
+        wallHitLeft:
+            popa
+            ret
+
+    player_RIGHT:
+            pusha
+
+            mov di, [playerPos]
+            add di, 8
+            mov si, di
+            add si, 1
+            cmp byte[es:si], 2
+            je wallHitRight
+
+            push word[playerPos]
+            call clearPlayer
+
+            mov word[playerPos], di
+
+            push word[playerPos]
+            call drawPlayer
+            
+        wallHitRight:
+            popa
+            ret
+
     _init_PLAYER:
             ret
 
     _check_collision_PLAYER:
             ; if collides with enemy
-            jmp game_Over
             
             ; if collides with Collectable
             ; pram -> collision with
