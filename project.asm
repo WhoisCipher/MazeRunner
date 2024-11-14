@@ -62,6 +62,9 @@ kbISR_MENU:
         je ExitGame
         call clearScreen
         call _init_MAP
+        call drawScoreText
+        push 0
+        call drawScore
         call kbISR_GAME_hook
         jmp EOI
 
@@ -97,7 +100,16 @@ kbISR_MENU:
 
 kbISR_GAME:
         pusha
+
+        mov ax, 0xa000
+        mov es, ax
+
         
+        mov cx, 50
+        mov di, 0
+        mov al, 5
+        rep stosb
+
         in al, 0x60
         mov ah, al
         
@@ -220,7 +232,7 @@ timerISR:
         mov al, [tick]
         cmp al, 18
         jl done
-        
+        call drawTimer
         mov byte[tick], 0
         inc byte[tick]
 
@@ -469,6 +481,38 @@ N:
     db  11000111b
     db  11000011b
     db  00000000b
+
+O:
+    db  00111100b
+    db  01100110b
+    db  11000011b
+    db  11000011b
+    db  11000011b
+    db  01100110b
+    db  00111100b
+    db  00000000b
+
+S:
+    db  00111100b
+    db  01100110b
+    db  01100000b
+    db  00111100b
+    db  00000110b
+    db  01100110b
+    db  00111100b
+    db  00000000b
+
+C:
+    db  00111100b
+    db  01100110b
+    db  11000000b
+    db  11000000b
+    db  11000000b
+    db  01100110b
+    db  00111100b
+    db  00000000b
+
+
 
 drawHeroText:
         pusha
@@ -1298,17 +1342,17 @@ MAP1:
     db 1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1
     db 1,1,1,1,1,0,1,1,1,0,1,1,0,1,0,1,0,1,1,1
     db 1,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0,1,0,0,1
-    db 1,0,1,0,0,0,1,0,1,1,0,0,0,1,0,1,1,0,1,1
-    db 1,1,1,0,1,1,1,0,1,0,1,0,1,1,0,1,0,0,0,1
-    db 1,0,1,0,0,0,0,0,0,1,0,1,0,0,0,0,1,0,1,1
+    db 1,0,1,0,0,0,1,0,0,0,0,0,0,1,0,1,1,0,1,1
+    db 1,1,1,0,1,1,1,0,0,1,1,0,1,1,0,1,0,0,0,1
+    db 1,0,1,0,0,0,0,3,0,1,0,1,0,0,0,0,1,0,1,1
     db 1,0,1,1,0,1,1,1,0,1,0,0,0,1,1,1,1,1,0,1
     db 1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,1
-    db 1,1,0,0,1,0,1,1,1,1,1,1,1,0,1,0,1,0,0,1
-    db 1,0,1,0,0,0,1,0,0,0,1,0,0,0,1,1,1,0,0,1
-    db 1,0,1,0,1,1,0,1,1,0,1,0,0,1,0,1,0,1,1,1
-    db 1,0,0,1,0,0,0,0,0,0,1,1,0,0,0,0,1,0,0,1
-    db 1,1,1,1,1,0,1,0,1,0,0,0,0,0,0,0,0,0,1,1
-    db 1,0,0,0,1,0,0,0,1,1,1,1,0,0,0,0,0,0,2,1
+    db 1,1,0,0,0,0,1,1,1,1,1,1,1,0,1,0,1,0,0,1
+    db 1,0,0,1,0,0,1,0,0,0,1,0,0,0,1,1,1,0,0,1
+    db 1,0,0,1,3,3,3,1,1,3,1,0,0,1,0,1,0,1,1,1
+    db 1,0,0,1,3,3,3,3,3,3,1,1,0,0,0,0,1,0,0,1
+    db 1,1,1,1,1,3,3,3,1,0,0,0,0,0,0,0,0,0,1,1
+    db 1,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,2,1
     db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 
 
@@ -1324,11 +1368,19 @@ MAP1:
 
         cols: 
             lodsb             ; Load byte at [si] into AL and increment SI
+            cmp al, 3
+            je collectableDrawer
             cmp al, 2
             je playerDrawer
             cmp al, 1         ; Compare AL with 1
             je wall           ; Jump to 'wall' if AL == 1
             jmp floor         ; Otherwise, jump to 'floor'
+        
+        collectableDrawer:
+            mov [collectablePos], di
+            push di
+            call drawCollectable
+            jmp next_pixel
 
         playerDrawer:
             mov [playerPos], di
@@ -1496,6 +1548,16 @@ player_SPRITE:
             sub si, 320
             cmp byte[es:si], 2
             je wallHitUp
+            add si, 5
+            sub si, 5*320
+            cmp byte[es:si], 3
+            je collectableHitUP
+            jmp ValidUP
+
+        collectableHitUP:
+            call _inc_SCORE
+        
+        ValidUP:
             sub di, 8*320
             
             push word[playerPos]
@@ -1505,6 +1567,7 @@ player_SPRITE:
 
             push word[playerPos]
             call drawPlayer
+        
 
         wallHitUp:
             popa
@@ -1519,7 +1582,15 @@ player_SPRITE:
             add si, 320
             cmp byte[es:si], 2
             je wallHitDown
+            add si, 5
+            cmp byte[es:si], 3
+            je collectableHitDown
+            jmp ValidDOWN
             
+        collectableHitDown:
+            call _inc_SCORE
+
+        ValidDOWN:
             push word[playerPos]
             call clearPlayer
 
@@ -1527,6 +1598,7 @@ player_SPRITE:
 
             push word[playerPos]
             call drawPlayer
+
 
         wallHitDown:
             popa
@@ -1540,8 +1612,16 @@ player_SPRITE:
             sub si, 1
             cmp byte[es:si], 2
             je wallHitLeft
-            sub di, 8
+            sub si, 5
+            cmp byte[es:si], 3
+            je collectableHitLeft
+            jmp ValidLEFT
 
+        collectableHitLeft:
+            call _inc_SCORE
+
+        ValidLEFT:
+            sub di, 8
             push word[playerPos]
             call clearPlayer
 
@@ -1549,7 +1629,8 @@ player_SPRITE:
 
             push word[playerPos]
             call drawPlayer
-            
+
+
         wallHitLeft:
             popa
             ret
@@ -1563,7 +1644,15 @@ player_SPRITE:
             add si, 1
             cmp byte[es:si], 2
             je wallHitRight
+            add si, 320
+            cmp byte[es:si], 3
+            je collectableHitRight
+            jmp ValidRIGHT
 
+        collectableHitRight:
+            call _inc_SCORE
+        
+        ValidRIGHT:
             push word[playerPos]
             call clearPlayer
 
@@ -1571,7 +1660,7 @@ player_SPRITE:
 
             push word[playerPos]
             call drawPlayer
-            
+
         wallHitRight:
             popa
             ret
@@ -1598,6 +1687,58 @@ player_SPRITE:
 ; //    - Remove once collides with player
 ; ///////////////////////////////////////////////////////////////////
 Struct_COLLECTABLES:
+    
+
+collectablePos: dw  0
+
+collectable_SPRITE:
+    db 1,1,0,0,0,0,1,1
+    db 1,0,0,0,0,0,0,1
+    db 0,0,0,0,0,0,0,0
+    db 1,0,0,0,0,0,0,1
+    db 1,1,0,0,0,0,1,1
+    db 1,1,1,0,0,1,1,1
+    db 1,1,1,0,0,1,1,1
+    db 1,1,1,1,1,1,1,1
+            
+        ; @prams
+        ; bp+4 => position
+    drawCollectable:
+            push bp
+            mov bp, sp
+            pusha
+            
+            mov di, [bp+4]
+            mov si, collectable_SPRITE
+            mov cx, 8
+
+    rows_COLLECT:
+            push cx
+            mov cx, 8
+
+        cols_COLLECT: 
+            lodsb
+            cmp al, 0
+            je fill1
+            jmp noFill1
+
+        fill1:
+            mov byte[es:di], 3
+            jmp next_pix
+
+        noFill1:
+
+        next_pix:
+            inc di
+            loop cols_COLLECT
+
+            add di, 320-8
+            pop cx
+            loop rows_COLLECT
+
+            popa
+            pop bp
+            ret 2
     
     _init_COLLECTABLES:
             ret
@@ -1628,6 +1769,8 @@ Struct_TIMER:
             inc word[time]
             ret
 
+    drawTimer:
+            
 
 ; ///////////////////////////////////////////////////////////////////
 ; //    Score Structure
@@ -1640,41 +1783,225 @@ Struct_TIMER:
 ; //    - The player gets -1 after 50 seconds
 ; ///////////////////////////////////////////////////////////////////
 Struct_SCORE:
-    
-    score:  dw  0
+
+; 0
+ZERO:
+    db  00111100b
+    db  01100110b
+    db  01101110b
+    db  01110110b
+    db  01100110b
+    db  01100110b
+    db  00111100b
+    db  00000000b
+
+; 1
+ONE:
+    db  00011000b
+    db  00111000b
+    db  00011000b
+    db  00011000b
+    db  00011000b
+    db  00011000b
+    db  01111110b
+    db  00000000b
+
+; 2
+TWO:
+    db  00111100b
+    db  01100110b
+    db  00000110b
+    db  00001100b
+    db  00110000b
+    db  01100000b
+    db  01111110b
+    db  00000000b
+
+; 3
+THREE:
+    db  00111100b
+    db  01100110b
+    db  00000110b
+    db  00111100b
+    db  00000110b
+    db  01100110b
+    db  00111100b
+    db  00000000b
+
+; 4
+FOUR:
+    db  00001100b
+    db  00011100b
+    db  00111100b
+    db  01101100b
+    db  01111110b
+    db  00001100b
+    db  00001100b
+    db  00000000b
+
+; 5
+FIVE:
+    db  01111110b
+    db  01100000b
+    db  01111100b
+    db  00000110b
+    db  00000110b
+    db  01100110b
+    db  00111100b
+    db  00000000b
+
+; 6
+SIX:
+    db  00111100b
+    db  01100000b
+    db  01111100b
+    db  01100110b
+    db  01100110b
+    db  01100110b
+    db  00111100b
+    db  00000000b
+
+; 7
+SEVEN:
+    db  01111110b
+    db  01100110b
+    db  00000110b
+    db  00001100b
+    db  00011000b
+    db  00011000b
+    db  00011000b
+    db  00000000b
+
+; 8
+EIGHT:
+    db  00111100b
+    db  01100110b
+    db  01100110b
+    db  00111100b
+    db  01100110b
+    db  01100110b
+    db  00111100b
+    db  00000000b
+
+; 9
+NINE:
+    db  00111100b
+    db  01100110b
+    db  01100110b
+    db  00111110b
+    db  00000110b
+    db  01100110b
+    db  00111100b
+    db  00000000b
+
+    score:      dw  0
     
     _init_SCORE:
             mov word[score], 0
             ret
+
+    drawScoreText:
+            pusha
+            
+            mov ax, 0xA000
+            mov es, ax
+
+            mov cx, 230         ; X position
+            mov dx, 50          ; Y position
+            mov bl, 4           ; Color
+            mov si, S
+            call drawAlphabet
+
+            add cx, 9
+            mov si, C
+            call drawAlphabet
+
+            add cx, 9
+            mov si, O
+            call drawAlphabet
+
+            add cx, 9
+            mov si, R
+            call drawAlphabet
+
+            add cx, 9
+            mov si, E
+            call drawAlphabet
+
+            popa
+            ret
+
 
             ; @prams 
             ;   bp+4 => Score to Print
     drawScore:
             push bp
             mov bp, sp
-
-            push ax
-            push bx
-            push si
+            pusha
+        
+            mov ax, 0xA000
+            mov es, ax
+            
+            mov di, 230+(59*320)
+            mov cx, 8
+        clearScore:
             push di
-
+            push cx
             
+            mov cx, 9*3
+            mov al, 1
+            rep stosb
+            
+            pop cx
             pop di
-            pop si
-            pop bx
-            pop ax
+            add di, 320
+            loop clearScore
+
+            mov ax, [bp+4]
+
+            mov bx, 10
+            xor dx, dx
+            div bx
+            mov si, ZERO
+            shl dx, 3
+            add si, dx
+
+            mov cx, 230+3*9
+            mov dx, 60
+            mov bl, 2
+            call drawAlphabet
             
+            mov bx, 10
+            xor dx, dx
+            div bx
+            mov si, ZERO
+            shl dx, 3
+            add si, dx
+            mov dx, 60
+            sub cx, 9
+            mov bl, 2
+            call drawAlphabet
+
+            mov bx, 10
+            xor dx, dx
+            div bx
+            shl dx, 3
+            mov si, ZERO
+            add si, dx
+            mov dx, 60
+            sub cx, 9
+            mov bl, 2
+            call drawAlphabet
+            
+            popa
             pop bp
             ret 2
-    
+
+
     _show_SCORE:
             push bp
             mov bp, sp
-
-            push ax
-            push bx
-            push cx
-            push dx
+            pusha
             
             mov cx, [score]
             cmp cx, 0
@@ -1694,27 +2021,15 @@ Struct_SCORE:
             push cx
             call drawScore
             
-            pop dx
-            pop cx
-            pop bx
-            pop ax
-            
+            popa
             pop bp
             ret
     
-        ; @prams
-        ;   bp+4 => Collectables Score sent
     _inc_SCORE:
-            push bp
-            mov bp, sp
-            push ax
-
-            mov ax, [bp+4]
-            add [score], ax
-            
-            pop ax
-            pop bp
-            ret 2
+            add word[score], 10
+            push word[score]
+            call drawScore
+            ret 
 
 main:   
         call kbISR_MENU_hook
