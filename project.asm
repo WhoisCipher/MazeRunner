@@ -65,6 +65,8 @@ kbISR_MENU:
         call drawScoreText
         push 0
         call drawScore
+        call drawLivesText
+        call drawLives
         call kbISR_GAME_hook
         jmp EOI
 
@@ -161,11 +163,6 @@ kbISR_GAME_hook:
         xor ax, ax
         mov es, ax
         
-        mov ax, [es:4*9]          
-        mov [orgKBISR_offest], ax
-        mov ax, [es:4*9+2]
-        mov [orgKBISR_segment], ax
-        
         mov word[es:4*9], kbISR_GAME
         mov word[es:4*9+2], cs
         sti
@@ -194,6 +191,70 @@ kbISR_MENU_hook:
         popa
         pop bp
         ret
+
+kbISR_REST_MENU:
+        pusha
+        
+        mov cx, 15000
+        mov al, 4
+        mov di, 10*320
+        rep stosb
+        in al, 0x60
+
+        ;R pressed
+        cmp al, 0x13
+        je newGame
+
+        ; Q pressed
+        cmp al, 0x15
+    
+    newGame:
+        call clearScreen
+        call _init_MAP
+        call drawScoreText
+        push 0
+        call drawScore
+        call drawLivesText
+        call drawLives
+        call kbISR_GAME_hook
+        jmp EOI3
+
+    quit:
+        call restoreTextMode
+        mov ax, 0xb800
+        mov es, ax
+        mov ax, 0x720
+        mov cx, 2000
+        mov di, 0
+        rep stosw
+        call restoreISR
+        mov ax, 4c00h
+        int 21h
+
+    EOI3:
+        mov al, 0x20
+        out 0x20, al
+
+        popa
+        iret
+
+kbISR_REST_MENU_hook:
+        push bp
+        mov bp, sp
+        pusha
+        
+        cli
+        xor ax, ax
+        mov es, ax
+        
+        mov word[es:4*9], kbISR_REST_MENU
+        mov [es:4*9+2], cs
+        sti
+
+        popa
+        pop bp
+        ret
+
 
 restoreISR:
         pusha
@@ -360,7 +421,33 @@ drawMenu:
         pusha
         
 ;       --ColorPallet--
+    ;Grey
+        mov dx, 0x03c8
+        mov al, 7
+        out dx, al
 
+        mov dx, 0x03c9
+        mov al, 40
+        out dx, al
+        mov al, 40
+        out dx, al
+        mov al, 40
+        out dx, al
+
+    ;heart
+        mov dx, 0x03c8
+        mov al, 6
+        out dx, al
+
+        mov dx, 0x03c9
+        mov al, 44
+        out dx, al
+        mov al, 3
+        out dx, al
+        mov al, 15
+        out dx, al
+        
+        
     ;blue
         mov dx, 0x03c8
         mov al, 2
@@ -451,7 +538,27 @@ E:
     db  11000000b
     db  11111110b
     db  00000000b
-  
+L:
+    db  11000000b
+    db  11000000b
+    db  11000000b
+    db  11000000b
+    db  11000000b
+    db  11000000b
+    db  11111110b
+    db  00000000b 
+
+V:
+    db  11000011b
+    db  11000011b
+    db  11000011b
+    db  11000011b
+    db  01100110b
+    db  00111100b
+    db  00011000b
+    db  00000000b
+
+
 R:
     db  11111100b
     db  11000110b
@@ -509,6 +616,16 @@ C:
     db  11000000b
     db  11000000b
     db  01100110b
+    db  00111100b
+    db  00000000b
+
+I:
+    db  00111100b
+    db  00011000b
+    db  00011000b
+    db  00011000b
+    db  00011000b
+    db  00011000b
     db  00111100b
     db  00000000b
 
@@ -1271,54 +1388,18 @@ drawHorizontalLine:
         pop bp
         ret 4
 
+drawResetMENU:
+        pusha
+        popa
+        ret
 
-; ///////////////////////////////////////////////////////////////////
-; // Game Handler
-; //    Initializes the Game in memory
-; //    Handles GameState
-; //    
-; //    Key Feature:
-; //    - Initializes Map
-; //    - Initializes Player/Enemies
-; //    - Initializes Timer
-; //    - Initializes Scoring
-; // 
-; //    - All the game components communicate with the handler
-; //    - Handler updates GameState based on the communication
-; //    
-; //    Game Logic:
-; //    - Avoid enemies
-; //    - Gain maximum collectables for higher score
-; //    - Once you reach the end of the Maze:
-; //            - Score is shown
-; //            - The next level loads on key-stroke
-; //    - If hit by the enemy: 
-; //            - Game Over message shown
-; //            - Same map reloads
-; ///////////////////////////////////////////////////////////////////
-Struct_GAMEHANDLER:
+Reset:
+        pusha
+        call drawResetMENU
+        call kbISR_REST_MENU_hook
+        popa
+        ret
 
-    ; Handles:
-    ;   - Map
-    ;   - Player
-    ;   - Enemies
-    ;   - Collectables
-
-    ;   - Timer
-    ;   - Score
-    
-    __init__:
-            call clearScreen
-            call _init_MAP
-    reset_same_MAP:
-            call _init_PLAYER
-            call _init_ENEMIES
-            call _init_COLLECTABLES
-            call _init_TIMER
-            call _init_SCORE
-            
-            ret
-    
 ; ///////////////////////////////////////////////////////////////////
 ; //    Map Structure
 ; //    Initializing the map in the memory
@@ -1340,7 +1421,7 @@ MAP1:
     db 1,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1,1,1,0,1
     db 1,0,1,0,1,1,0,1,0,1,0,1,1,1,0,0,0,0,1,1
     db 1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1
-    db 1,1,1,1,1,0,1,1,1,0,1,1,0,1,0,1,0,1,1,1
+    db 1,1,1,1,1,4,1,1,1,0,1,1,0,1,0,1,0,1,1,1
     db 1,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0,1,0,0,1
     db 1,0,1,0,0,0,1,0,0,0,0,0,0,1,0,1,1,0,1,1
     db 1,1,1,0,1,1,1,0,0,1,1,0,1,1,0,1,0,0,0,1
@@ -1350,9 +1431,9 @@ MAP1:
     db 1,1,0,0,0,0,1,1,1,1,1,1,1,0,1,0,1,0,0,1
     db 1,0,0,1,0,0,1,0,0,0,1,0,0,0,1,1,1,0,0,1
     db 1,0,0,1,3,3,3,1,1,3,1,0,0,1,0,1,0,1,1,1
-    db 1,0,0,1,3,3,3,3,3,3,1,1,0,0,0,0,1,0,0,1
-    db 1,1,1,1,1,3,3,3,1,0,0,0,0,0,0,0,0,0,1,1
-    db 1,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,2,1
+    db 1,0,0,1,3,3,3,3,3,3,1,1,0,4,0,0,1,0,0,1
+    db 1,1,1,1,1,3,3,3,1,0,0,0,4,4,0,0,0,0,1,1
+    db 1,0,0,0,0,0,0,0,1,1,1,1,0,4,0,0,0,0,2,1
     db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 
 
@@ -1368,6 +1449,8 @@ MAP1:
 
         cols: 
             lodsb             ; Load byte at [si] into AL and increment SI
+            cmp al, 4
+            je enemyDrawer
             cmp al, 3
             je collectableDrawer
             cmp al, 2
@@ -1376,6 +1459,12 @@ MAP1:
             je wall           ; Jump to 'wall' if AL == 1
             jmp floor         ; Otherwise, jump to 'floor'
         
+        enemyDrawer:
+            mov [enemyPos], di
+            push di
+            call drawEnemies
+            jmp next_pixel
+
         collectableDrawer:
             mov [collectablePos], di
             push di
@@ -1444,15 +1533,79 @@ MAP1:
 ; //    - Provides Damage to the Player
 ; ///////////////////////////////////////////////////////////////////
 Struct_ENEMIES:
+
+enemyPos:   dw 0
+enemy_SPRITE:
+    db 1,1,1,1,1,1,1,1
+    db 1,1,0,0,0,0,0,1
+    db 1,0,0,0,0,0,0,1
+    db 1,0,0,1,0,1,0,1
+    db 1,0,0,0,0,0,0,1
+    db 1,0,0,1,0,1,0,1
+    db 1,0,0,1,0,1,0,1
+    db 1,1,1,1,1,1,1,1
+
     
-    _init_ENEMIES:
-            ret
+    clearEnemy:
+            push bp
+            mov bp, sp
+            pusha
 
-    collide_ENEMIES:
-            ret
+            mov di, [bp+4]
+            mov cx, 8
+        clearEnemyLoop:
+            push cx
+            push di
+            
+            mov cx, 8
+            mov al ,1
+            rep stosb
+            
+            pop di
+            pop cx
+            add di, 320
+            loop clearEnemyLoop
 
-    _check_collision_ENEMIES:
-            ret
+            popa
+            pop bp
+            ret 2
+
+    drawEnemies:
+            push bp
+            mov bp, sp
+            pusha
+            
+            mov di, [bp+4]
+            mov si, enemy_SPRITE
+            mov cx, 8
+
+    rows_ENEMY:
+            push cx
+            mov cx, 8
+
+        cols_ENEMY: 
+            lodsb
+            cmp al, 0
+            je fill3
+            jmp noFill3
+
+        fill3:
+            mov byte[es:di], 4
+            jmp next_pixle
+
+        noFill3:
+
+        next_pixle:
+            inc di
+            loop cols_ENEMY
+
+            add di, 320-8
+            pop cx
+            loop rows_ENEMY
+
+            popa
+            pop bp
+            ret 2
 
 ; ///////////////////////////////////////////////////////////////////
 ; //    Player Structure
@@ -1546,12 +1699,19 @@ player_SPRITE:
             mov di, [playerPos]
             mov si, [playerPos]
             sub si, 320
+
             cmp byte[es:si], 2
             je wallHitUp
+            
             add si, 5
             sub si, 5*320
+            
+            cmp byte[es:si], 4
+            je enemyHitUP
+
             cmp byte[es:si], 3
             je collectableHitUP
+            
             jmp ValidUP
 
         collectableHitUP:
@@ -1567,7 +1727,19 @@ player_SPRITE:
 
             push word[playerPos]
             call drawPlayer
-        
+            jmp wallHitUp
+
+        enemyHitUP:
+            sub di, 8*320
+            push di
+            call clearEnemy
+            call _dec_LIFE
+            cmp word[lives], 0
+            je GAMEOVER1
+            jmp wallHitUp
+
+        GAMEOVER1:
+            call Reset
 
         wallHitUp:
             popa
@@ -1579,12 +1751,18 @@ player_SPRITE:
             mov di, [playerPos]
             add di, 8*320
             mov si, di
-            add si, 320
+            add si, 2*320
+
             cmp byte[es:si], 2
             je wallHitDown
+            
             add si, 5
+            cmp byte[es:si], 4
+            je enemyHitDOWN
+
             cmp byte[es:si], 3
             je collectableHitDown
+            
             jmp ValidDOWN
             
         collectableHitDown:
@@ -1598,7 +1776,18 @@ player_SPRITE:
 
             push word[playerPos]
             call drawPlayer
+            jmp wallHitDown
 
+        enemyHitDOWN:
+            push di
+            call clearEnemy
+            call _dec_LIFE
+            cmp word[lives], 0
+            je GAMEOVER2
+            jmp wallHitUp
+
+        GAMEOVER2:
+            call Reset
 
         wallHitDown:
             popa
@@ -1610,11 +1799,19 @@ player_SPRITE:
             mov di, [playerPos]
             mov si, [playerPos]
             sub si, 1
+
             cmp byte[es:si], 2
             je wallHitLeft
-            sub si, 5
+            
+            sub si, 4
+            add si, 320
+            
+            cmp byte[es:si], 4
+            je enemyHitLEFT
+
             cmp byte[es:si], 3
             je collectableHitLeft
+            
             jmp ValidLEFT
 
         collectableHitLeft:
@@ -1629,7 +1826,19 @@ player_SPRITE:
 
             push word[playerPos]
             call drawPlayer
+            jmp wallHitLeft
 
+        enemyHitLEFT:
+            sub di, 8
+            push di
+            call clearEnemy
+            call _dec_LIFE
+            cmp word[lives], 0
+            je GAMEOVER3
+            jmp wallHitUp
+
+        GAMEOVER3:
+            call Reset
 
         wallHitLeft:
             popa
@@ -1641,12 +1850,19 @@ player_SPRITE:
             mov di, [playerPos]
             add di, 8
             mov si, di
-            add si, 1
+            add si, 2
+
             cmp byte[es:si], 2
             je wallHitRight
+            
             add si, 320
+            
+            cmp byte[es:si], 4
+            je enemyHitRIGHT
+
             cmp byte[es:si], 3
             je collectableHitRight
+            
             jmp ValidRIGHT
 
         collectableHitRight:
@@ -1660,21 +1876,21 @@ player_SPRITE:
 
             push word[playerPos]
             call drawPlayer
+            jmp wallHitRight
+
+        enemyHitRIGHT:
+            push di
+            call clearEnemy
+            call _dec_LIFE
+            cmp word[lives], 0
+            je GAMEOVER4
+            jmp wallHitUp
+
+        GAMEOVER4:
+            call Reset
 
         wallHitRight:
             popa
-            ret
-
-    _init_PLAYER:
-            ret
-
-    _check_collision_PLAYER:
-            ; if collides with enemy
-            
-            ; if collides with Collectable
-            ; pram -> collision with
-            call _inc_SCORE
-
             ret
 
 ; ///////////////////////////////////////////////////////////////////
@@ -1692,12 +1908,12 @@ Struct_COLLECTABLES:
 collectablePos: dw  0
 
 collectable_SPRITE:
+    db 1,1,1,1,1,1,1,1
     db 1,1,0,0,0,0,1,1
     db 1,0,0,0,0,0,0,1
     db 0,0,0,0,0,0,0,0
     db 1,0,0,0,0,0,0,1
     db 1,1,0,0,0,0,1,1
-    db 1,1,1,0,0,1,1,1
     db 1,1,1,0,0,1,1,1
     db 1,1,1,1,1,1,1,1
             
@@ -1894,10 +2110,140 @@ NINE:
     db  00111100b
     db  00000000b
 
-    score:      dw  0
+; HEART
+HEART:
+    db  01100110b
+    db  11111111b
+    db  11111111b
+    db  01111110b
+    db  00111100b
+    db  00011000b
+    db  00010000b
+    db  00000000b
     
+
+    score:      dw  0
+    lives:      dw  3
+
     _init_SCORE:
             mov word[score], 0
+            ret
+
+    drawLives:
+        pusha
+
+        mov si, HEART
+
+        cmp word[lives], 3
+        je draw3L
+        
+        cmp word[lives], 2
+        je draw2L
+
+        cmp word[lives], 1
+        je draw1L
+
+        cmp word[lives], 0
+        je draw0L
+        
+    draw3L:
+        mov cx, 230+9*3
+        mov dx, 100
+        mov bl, 6
+        call drawAlphabet
+
+        sub cx, 9
+        call drawAlphabet
+
+        sub cx, 9
+        call drawAlphabet
+        
+        jmp exitDrawL
+        
+    draw2L:
+        mov cx, 230+9*3
+        mov dx, 100
+        mov bl, 7
+        call drawAlphabet
+
+        sub cx, 9
+        mov bl, 6
+        call drawAlphabet
+
+        sub cx, 9
+        call drawAlphabet
+        
+        jmp exitDrawL
+
+    draw1L:
+        mov cx, 230+9*3
+        mov dx, 100
+        mov bl, 7
+        call drawAlphabet
+
+        sub cx, 9
+        call drawAlphabet
+
+        sub cx, 9
+        mov bl, 6
+        call drawAlphabet
+        
+        jmp exitDrawL
+
+    draw0L:
+        mov cx, 230+9*3
+        mov dx, 100
+        mov bl, 7
+        call drawAlphabet
+
+        sub cx, 9
+        call drawAlphabet
+
+        sub cx, 9
+        call drawAlphabet
+        
+    exitDrawL:
+        popa
+        ret
+    
+    _dec_LIFE:
+        dec word[lives]
+        call drawLives
+        ret
+
+    _inc_life:
+        inc word[lives]
+        ret
+    
+    drawLivesText:
+            pusha
+            
+            mov ax, 0xA000
+            mov es, ax
+
+            mov cx, 232         ; X position
+            mov dx, 90          ; Y position
+            mov bl, 4           ; Color
+            mov si, L
+            call drawAlphabet
+
+            add cx, 7
+            mov si, I
+            call drawAlphabet
+
+            add cx, 9
+            mov si, V
+            call drawAlphabet
+
+            add cx, 9
+            mov si, E
+            call drawAlphabet
+
+            add cx, 8
+            mov si, S
+            call drawAlphabet
+
+            popa
             ret
 
     drawScoreText:
@@ -2026,14 +2372,33 @@ NINE:
             ret
     
     _inc_SCORE:
+            pusha
+            
             add word[score], 10
             push word[score]
+            cmp word[lives], 3
+            je done1
+            
+            xor dx, dx
+            mov ax, [score]
+            mov bx, 30
+            div bx
+            cmp dx, 0
+            je increaseLife
+            jmp done1
+
+        increaseLife:
+            call _inc_life
+            call drawLives
+
+        done1:
             call drawScore
+            popa
             ret 
 
 main:   
         call kbISR_MENU_hook
         call setVideoMode
         call drawMenu
-    
+    stuck:
         jmp $
