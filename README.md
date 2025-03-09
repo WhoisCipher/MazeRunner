@@ -51,7 +51,7 @@ The codebase is organized into several key components:
 - Maze rendering
 - UI element drawing
 
-![in-game-footage]("assets/2.png")
+![Game Picture](assets/2.png)
 
 
 ## Developers
