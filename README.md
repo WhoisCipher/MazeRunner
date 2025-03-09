@@ -123,10 +123,6 @@ After building, run the game in DOSBox:
 
 Or use the automated launcher in the build script by selecting "yes" when asked if you want to run the game in DOSBox.
 
-## Screenshots
-
-*Screenshots of the game would be placed here*
-
 ## Notes
 
 - The game uses VGA mode 13h (320x200, 256 colors) for graphics
