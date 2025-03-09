@@ -61,7 +61,7 @@ The codebase is organized into several key components:
 This game is designed to run in a 16-bit DOS environment. It can be assembled using NASM or similar x86 assemblers and executed in DOS or a DOS emulator like DOSBox.
 
 ```
-nasm -f bin maze.asm -o maze.com
+nasm maze.asm -o maze.com
 ```
 
 ### Automated Build
