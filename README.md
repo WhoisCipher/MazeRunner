@@ -1,4 +1,5 @@
 # MazeRunner
+![MazeRunner](assets/1.png)
 
 A classic maze navigation game developed in Assembly language.
 
@@ -49,6 +50,9 @@ The codebase is organized into several key components:
 - Color palette configuration
 - Maze rendering
 - UI element drawing
+
+![in-game-footage]("assets/2.png")
+
 
 ## Developers
 
