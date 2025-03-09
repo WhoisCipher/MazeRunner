@@ -52,7 +52,7 @@ The codebase is organized into several key components:
 
 ## Developers
 
-- Moiz Ijaz
+- [Moiz Ijaz](https://github.com/Moeezijaz1)
 - Abdullah Shoain
 
 ## Building and Running
