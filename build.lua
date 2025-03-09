@@ -16,6 +16,7 @@ end
 
 -- Function to run a shell command and return its output and exit status
 local function execute_command(cmd)
+    print("Executing command: " .. cmd)  -- Debugging line to show the command being executed
     local handle = io.popen(cmd .. " 2>&1; echo $?")
     local output = handle:read("*a")
     handle:close()
@@ -123,3 +124,4 @@ if get_yes_no() then
 end
 
 print("Build process completed.")
+
