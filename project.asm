@@ -19,7 +19,7 @@
 ; //
 ; // Input detection, 2 variations:
 ; // - Menu
-; //    => Up/Down Arrow Keys (Change 
+; //    => Up/Down Arrow Keys (Change
 ; //       selections)
 ; //    => Enter Key (Run Function Based
 ; //       of current selections)
@@ -74,12 +74,12 @@ kbISR_MENU:
         call kbISR_GAME_hook
         jmp EOI
 
-    up: 
+    up:
         mov word[MenuSelection], 0
         push 0
         call updateMenuSelection
         jmp EOI
-    
+
     ExitGame:
         call restoreTextMode
         mov ax, 0xb800
@@ -91,7 +91,7 @@ kbISR_MENU:
         call restoreISR
         mov ax, 4c00h
         int 21h
-        
+
     down:
         mov word[MenuSelection], 1
         push 1
@@ -117,10 +117,10 @@ kbISR_GAME:
 
         in al, 0x60
         mov ah, al
-        
+
         cmp word[game_running], 1
         je movement
-        
+
         ;Q
         cmp ah, 0x10
         je ExitGame
@@ -149,7 +149,7 @@ kbISR_GAME:
         ;W
         cmp ah, 0x11
         je moveFwd
-        
+
         ;A
         cmp ah, 0x1E
         je moveLeft
@@ -167,18 +167,18 @@ kbISR_GAME:
         je SuperMan
 
         jmp EOI2
-    
+
     SuperMan:
         cmp byte[supermanMode], 0
         je setSupermanMode
         jmp clearSupermanMode
-    
+
     clearSupermanMode:
         call clearSuperMan
         mov byte[supermanMode], 0
         jmp EOI2
 
-    setSupermanMode:        
+    setSupermanMode:
         call drawSuperMan
         mov byte[supermanMode], 1
         jmp EOI2
@@ -202,7 +202,7 @@ kbISR_GAME:
     EOI2:
         mov al, 0x20
         out 0x20, al
-        
+
         popa
         iret
 
@@ -212,7 +212,7 @@ kbISR_GAME_hook:
         cli
         xor ax, ax
         mov es, ax
-        
+
         mov word[es:4*9], kbISR_GAME
         mov word[es:4*9+2], cs
         sti
@@ -224,16 +224,16 @@ kbISR_MENU_hook:
         push bp
         mov bp, sp
         pusha
-        
+
         cli
         xor ax, ax
         mov es, ax
-        
-        mov ax, [es:4*9]          
+
+        mov ax, [es:4*9]
         mov [orgKBISR_offest], ax
         mov ax, [es:4*9+2]
         mov [orgKBISR_segment], ax
-     
+
         mov word[es:4*9], kbISR_MENU
         mov [es:4*9+2], cs
         sti
@@ -245,7 +245,7 @@ kbISR_MENU_hook:
 
 restoreISR:
         pusha
-        
+
         cli
         xor ax, ax
         mov es, ax
@@ -261,7 +261,7 @@ restoreISR:
 
 ; ////////////////////////////////////////////
 ; // Timer Intrupt
-; // 
+; //
 ; // Used to make the timer Work, Each time
 ; // the IRQ-0 sets, the tick variable gets
 ; // increased and 18 ticks approx to 1 sec
@@ -279,7 +279,7 @@ timerISR:
         cmp word[sec], 0
         je secZero
         jmp _inc_TICK
-        
+
     secZero:
         cmp word[min], 0
         je gameHalt
@@ -287,11 +287,11 @@ timerISR:
 
     gameHalt:
         call Reset
-        
+
 
     _inc_TICK:
         inc byte[tick]
-        
+
         mov al, [tick]
         cmp al, 18
         jl done
@@ -303,11 +303,11 @@ timerISR:
     done:
         mov al, 0x20
         out 0x20, al
-    
+
         popa
         pop bp
         iret
-        
+
 
 timerISR_hook:
         pusha
@@ -318,14 +318,14 @@ timerISR_hook:
         mov word[es:4*8], timerISR
         mov [es:4*8+2], cs
         sti
-        
+
         popa
         ret
 
 ; ----** GlobalFunctions **----
 ;
 ;   int     getRand()           ; return random value between 1-18
-;   
+;
 ;   void    clearScreen()
 ;   void    setVideoMode()
 ;   void    restoreTextMode()
@@ -347,7 +347,7 @@ setVideoMode:
         mov ah, 0
         mov al, 0x13
         int 10h
-        
+
         call clearScreen
 
         popa
@@ -358,7 +358,7 @@ restoreTextMode:
         push bp
         mov bp, sp
         pusha
-        
+
         mov ah, 0
         mov al, 0x03
         int 10h
@@ -371,7 +371,7 @@ clearScreen:
         push bp
         mov bp, sp
         pusha
-        
+
         mov dx, 0x03c8
         mov al, 1
         out dx, al
@@ -407,7 +407,7 @@ clearSuperMan:
         mov cx, 9*8
         mov al, 1
         rep stosb
-        
+
         pop cx
         pop di
         add di, 320
@@ -418,7 +418,7 @@ clearSuperMan:
 
 drawSuperMan:
         pusha
-        
+
         mov cx, 220
         mov dx, 160
         mov bl, 6
@@ -444,7 +444,7 @@ drawSuperMan:
         add cx, 8
         mov si, M
         call drawAlphabet
-        
+
         add cx, 8
         mov si, A
         call drawAlphabet
@@ -460,13 +460,13 @@ drawSuperMan:
 ; // Menu
 ; //    Basic menu with two buttons
 ; //        - play  - quit
-; //    Esthetics focused 
+; //    Esthetics focused
 ; ///////////////////////////////////////////////////////////////////
 drawMenu:
         push bp
         mov bp, sp
         pusha
-        
+
 ;       --ColorPallet--
 
     ;Green
@@ -481,8 +481,8 @@ drawMenu:
         out dx, al
         mov al, 0
         out dx, al
-        
-    
+
+
 
     ;Grey
         mov dx, 0x03c8
@@ -509,8 +509,8 @@ drawMenu:
         out dx, al
         mov al, 15
         out dx, al
-        
-        
+
+
     ;blue
         mov dx, 0x03c8
         mov al, 2
@@ -536,7 +536,7 @@ drawMenu:
         out dx, al
         mov al, 35
         out dx, al
-    
+
     ;red
         mov dx, 0x03c8
         mov al, 4
@@ -549,7 +549,7 @@ drawMenu:
         out dx, al
         mov al, 17
         out dx, al
-        
+
         call drawButtons
         call drawMenuMaze
         call drawHeroText
@@ -609,7 +609,7 @@ L:
     db  11000000b
     db  11000000b
     db  11111110b
-    db  00000000b 
+    db  00000000b
 
 R:
     db  11111100b
@@ -749,7 +749,7 @@ I:
 
 drawHeroText:
         pusha
-        
+
         mov cx, 116      ; X position
         mov dx, 51       ; Y position
         mov bl, 2      ; Color
@@ -763,7 +763,7 @@ drawHeroText:
         add cx, 9
         mov si, Z
         call drawAlphabet
-    
+
         add cx, 10
         mov si, E
         call drawAlphabet
@@ -772,11 +772,11 @@ drawHeroText:
         mov si, R
         call drawAlphabet
 
-        add cx, 9      
+        add cx, 9
         mov si, U
         call drawAlphabet
 
-        add cx, 10     
+        add cx, 10
         mov si, N
         call drawAlphabet
 
@@ -784,7 +784,7 @@ drawHeroText:
         mov si, N
         call    drawAlphabet
 
-        add cx, 9      
+        add cx, 9
         mov si, E
         call drawAlphabet
 
@@ -805,7 +805,7 @@ drawHeroText:
         add cx, 9
         mov si, Z
         call drawAlphabet
-    
+
         add cx, 10
         mov si, E
         call drawAlphabet
@@ -814,19 +814,19 @@ drawHeroText:
         mov si, R
         call drawAlphabet
 
-        add cx, 9      
+        add cx, 9
         mov si, U
         call drawAlphabet
 
-        add cx, 10     
+        add cx, 10
         mov si, N
         call drawAlphabet
 
-        add cx, 10     
+        add cx, 10
         mov si, N
         call    drawAlphabet
 
-        add cx, 10     
+        add cx, 10
         mov si, E
         call drawAlphabet
 
@@ -834,42 +834,42 @@ drawHeroText:
         mov si, R
         call drawAlphabet
 
-       
+
         popa
         ret
- 
+
 drawAlphabet:
         pusha
-    
+
         mov di, 8
     row_loop:
         mov al, [si]
         push cx
         mov ah, 8
-    
+
     pixel_loop:
         test al, 10000000b
         jz skip_pixel
-    
+
         push ax
         mov ah, 0Ch
         mov al, bl
         mov bh, 0
         int 10h
         pop ax
-    
+
     skip_pixel:
         inc cx
         shl al, 1
         dec ah
         jnz pixel_loop
-    
+
         pop cx
         inc dx
         inc si
         dec di
         jnz row_loop
-        
+
         popa
         ret
 
@@ -891,7 +891,7 @@ drawTextHorizontal:
         add di, 320
         loop TextHorizontalLoop
 
-        popa    
+        popa
         pop bp
         ret 4
 
@@ -914,7 +914,7 @@ drawTextVertical:
         add di, 320
         loop TextVerticalLoop
 
-        popa    
+        popa
         pop bp
         ret 4
 
@@ -930,17 +930,17 @@ updateMenuSelection:
 
         push 0xA000
         pop es
-        
+
         mov al, 4
-        
+
         mov di, (100*320)+135+5
         cmp word[bp+4], 1
         je quitUnderline
-        
+
         push di
         mov cx, 40
         rep stosb
-        
+
         pop di
         add di, (30*320)
         mov ax, 1
@@ -953,13 +953,13 @@ updateMenuSelection:
         mov al, 1
         mov cx, 40
         rep stosb
-        
+
         pop di
         mov al, 4
         add di, (30*320)
         mov cx, 40
         rep stosb
-        
+
     exit:
         popa
         pop bp
@@ -968,7 +968,7 @@ updateMenuSelection:
 drawButtons:
         pusha
         mov di, 135+(80*320)
-    
+
     ; button 1
         push 50
         push di
@@ -1007,7 +1007,7 @@ drawButtons:
         push di
         call drawVerticalLine
         push di
-    
+
         add di, 53
         push 20
         push di
@@ -1019,12 +1019,12 @@ drawButtons:
         push 50
         push di
         call drawHorizontalLine
-        
+
         call drawQuit
 
     ;highlights
 
-        
+
         push di
         mov al, 3
         sub di, 320
@@ -1035,7 +1035,7 @@ drawButtons:
         sub di, 320
         mov cx, 50
         rep stosb
-        
+
         pop di
         sub di, 30*320
         push di
@@ -1046,7 +1046,7 @@ drawButtons:
         sub di, 320
         mov cx, 50
         rep stosb
-        
+
         popa
         ret
 
@@ -1056,15 +1056,15 @@ drawMenuMaze:
 
         ;Maze decore
         mov di, (60*320)+90
-        
+
         push 80
         push di
         call drawVerticalLine
-        
+
         push 138
         push di
         call drawHorizontalLine
-        
+
         push di
 
     ; Right Side
@@ -1078,7 +1078,7 @@ drawMenuMaze:
         push 37
         push di
         call drawHorizontalLine
-        
+
         sub di, 6*320
         push 30
         push di
@@ -1089,12 +1089,12 @@ drawMenuMaze:
         push 26
         push di
         call drawVerticalLine
-        
+
         sub di, 20
         push 20
         push di
         call drawHorizontalLine
-        
+
         sub di, (10*320)
         push 13
         push di
@@ -1111,7 +1111,7 @@ drawMenuMaze:
         push 17
         push di
         call drawHorizontalLine
-        
+
         sub di, (6*320)
         sub di, 6
         push 17
@@ -1136,7 +1136,7 @@ drawMenuMaze:
         push 14
         push di
         call drawVerticalLine
-        
+
         add di, 13
         push 14
         push di
@@ -1157,12 +1157,12 @@ drawMenuMaze:
         push 7
         push di
         call drawHorizontalLine
-        
+
         add di, 4
         push 9
         push di
         call drawVerticalLine
-        
+
         sub di, (29*320)
         sub di, (6*320)
 
@@ -1181,7 +1181,7 @@ drawMenuMaze:
         push 112
         push di
         call drawHorizontalLine
-        
+
         sub di, 1
         push 14
         push di
@@ -1191,11 +1191,11 @@ drawMenuMaze:
         push 24
         push di
         call drawHorizontalLine
-        
+
         pop di
-        
+
     ;Left Side Maze
-    
+
         add di, (80*320)
         push 120
         push di
@@ -1206,12 +1206,12 @@ drawMenuMaze:
         push 30
         push di
         call drawHorizontalLine
-    
+
         sub di, (26*320)
         push 26
         push di
         call drawVerticalLine
-        
+
         push 20
         push di
         call drawHorizontalLine
@@ -1221,18 +1221,18 @@ drawMenuMaze:
         push 13
         push di
         call drawVerticalLine
-        
+
         sub di, (15*320)
         sub di, 20
         push 20
         push di
         call drawVerticalLine
-        
+
         add di, (18*320)
         push 17
         push di
         call drawHorizontalLine
-        
+
         sub di, (6*320)
         add di, 6
         push 17
@@ -1257,12 +1257,12 @@ drawMenuMaze:
         push 16
         push di
         call drawVerticalLine
-        
+
         add di, 13
         push 16
         push di
         call drawVerticalLine
-        
+
         sub di, 13
         add di, (14*320)
         push 16
@@ -1303,29 +1303,29 @@ drawMenuMaze:
 
 drawPlay:
         pusha
-        
+
 
     ;P
         mov di, (85*320)+143
         push 8
         push di
         call drawTextHorizontal
-		
+
 		push 13
 		push di
 		call drawTextVertical
-		 
+
 		add di, 6
 		push 5
         push di
         call drawTextVertical
-		
+
         add di, (5*320)
 		sub di, 6
 		push 8
 		push di
 		call drawTextHorizontal
-		 
+
 	;L
         mov di, (85*320)+152
         push 13
@@ -1346,13 +1346,13 @@ drawPlay:
         push 13
         push di
         call drawTextVertical
-        
+
         push di
         add di, (5*320)
         push 8
         push di
         call drawTextHorizontal
-        
+
         pop di
         add di, 6
         push 13
@@ -1364,7 +1364,7 @@ drawPlay:
         push 7
         push di
         call drawTextVertical
-        
+
         push di
         add di, (5*320)
         push 7
@@ -1376,12 +1376,12 @@ drawPlay:
         push 7
         push di
         call drawTextVertical
-    
+
         add di, (5*320)-3
         push 8
         push di
         call drawTextVertical
-		
+
         popa
         ret
 
@@ -1393,7 +1393,7 @@ drawQuit:
         push 8
         push di
         call drawTextHorizontal
-		
+
         push 11
         push di
 		call drawTextVertical
@@ -1402,19 +1402,19 @@ drawQuit:
         push 11
         push di
 		call drawTextVertical
-		
+
     	add di, (11*320)
         sub di, 8
         push 10
         push di
         call drawTextHorizontal
-		
+
         sub di, 320
 		add di, 5
         push 4
         push di
 		call drawTextVertical
-		
+
     ;U
         mov di, (115* 320)+155
         push 11
@@ -1473,10 +1473,10 @@ drawVerticalLine:
         add di, 320
         loop verticallineloop
 
-        popa    
+        popa
         pop bp
         ret 4
-    
+
         ;@prams
         ; bp+4 => offset
         ; bp+6 => width
@@ -1499,13 +1499,13 @@ drawHorizontalLine:
         add di, 320
         loop horizontallineloop
 
-        popa    
+        popa
         pop bp
         ret 4
 
 drawResetMENUwin:
             pusha
-        
+
             push 0xa000
             pop es
 
@@ -1514,7 +1514,7 @@ drawResetMENUwin:
             mov al, 4
             cld
             rep stosb
-            
+
             mov cx, 130
             mov dx, 50
             mov bl, 6
@@ -1528,7 +1528,7 @@ drawResetMENUwin:
             add cx, 9
             mov si, U
             call drawAlphabet
-            
+
             add cx, 13
             mov si, W
             call drawAlphabet
@@ -1562,7 +1562,7 @@ drawResetMENUwin:
             add cx, 9
             mov si, T
             call drawAlphabet
-            
+
             mov cx, 8
             mov di, (74*320)+140
             mov al, 2
@@ -1596,7 +1596,7 @@ drawResetMENUwin:
 
 drawResetMENU:
             pusha
-        
+
             push 0xa000
             pop es
 
@@ -1605,7 +1605,7 @@ drawResetMENU:
             mov al, 4
             cld
             rep stosb
-            
+
             mov cx, 120
             mov dx, 50
             mov bl, 6
@@ -1619,7 +1619,7 @@ drawResetMENU:
             add cx, 9
             mov si, M
             call drawAlphabet
-            
+
             add cx, 9
             mov si, E
             call drawAlphabet
@@ -1661,7 +1661,7 @@ drawResetMENU:
             add cx, 9
             mov si, T
             call drawAlphabet
-            
+
             mov cx, 8
             mov di, (74*320)+140
             mov al, 2
@@ -1695,7 +1695,7 @@ drawResetMENU:
 
 Reset:
             pusha
-            
+
             call drawResetMENU
             mov word[game_running], 0
             mov byte[supermanMode], 0
@@ -1705,10 +1705,9 @@ Reset:
 
 ResetWin:
             pusha
-            
+
             call drawResetMENUwin
             mov word[game_running], 0
-            mov byte[supermanMode], 0
 
             popa
             ret
@@ -1717,7 +1716,7 @@ ResetWin:
 ; ///////////////////////////////////////////////////////////////////
 ; //    Map Structure
 ; //    Initializing the map in the memory
-; //    
+; //
 ; //    Key Features:
 ; //    - The map generation is procedural rather than static
 ; //    - Map resets once the Maze is solved
@@ -1727,7 +1726,7 @@ Struct_MAP:
 
 currentMAP:
     db 0
-    
+
 MAP1:
 	db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
     db 1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,1,0,1
@@ -1749,7 +1748,7 @@ MAP1:
     db 1,1,1,1,1,3,3,3,1,0,0,0,4,4,0,0,0,0,1,1
     db 1,0,0,0,0,0,0,0,1,1,1,1,0,4,0,0,0,0,2,1
     db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
-	
+
 MAP2:
     db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
     db 1,2,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,0,0,1
@@ -1770,8 +1769,8 @@ MAP2:
     db 1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1
     db 1,0,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,0,1
     db 1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1
-    db 1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1	
-	
+    db 1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1
+
 MAP3:
     db 1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1
     db 1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,2,1
@@ -1792,8 +1791,8 @@ MAP3:
     db 1,0,0,0,4,0,0,1,0,1,1,1,1,0,1,0,1,0,1,1
     db 1,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,1,0,0,1
     db 1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,1,0,0,1
-    db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1	
-	
+    db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+
 MAP4:
     db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
     db 1,2,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1
@@ -1814,9 +1813,9 @@ MAP4:
     db 1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,0,1
     db 1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,3,1
     db 1,0,3,4,3,0,1,1,1,1,1,1,1,1,1,1,4,0,3,1
-    db 1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1	
-	
-	
+    db 1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+
+
 MAP5:
     db 1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
     db 1,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,2,1
@@ -1835,11 +1834,11 @@ MAP5:
     db 1,0,1,0,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1
     db 1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,1
     db 1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1
-    db 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,1 	
+    db 1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,1
     db 1,0,3,4,3,0,1,1,1,1,1,1,1,1,1,1,4,0,3,1
-    db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1	
-	
-	
+    db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+
+
 MAP6:
     db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
     db 1,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,2,1
@@ -1860,9 +1859,9 @@ MAP6:
     db 1,0,1,0,1,1,1,1,1,1,1,4,0,1,0,1,1,1,0,1
     db 1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,3,1
     db 1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,3,1
-    db 1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1	
-	
-	
+    db 1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+
+
 MAP7:
     db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,5,1
     db 1,0,0,0,0,1,4,0,0,0,0,1,1,1,1,1,0,0,0,1
@@ -1883,9 +1882,9 @@ MAP7:
     db 1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0,0,1
     db 1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,3,1
     db 1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,0,1
-    db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1	
+    db 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 
-    
+
 MAP8:
     db 1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1
     db 1,0,0,0,0,1,4,0,0,1,0,1,1,1,1,1,0,0,0,1
@@ -1924,7 +1923,7 @@ MAP8:
             mov al, [currentMAP]
             mov bx, 400
             mul bx
-            
+
             mov si, MAP1
             add si, ax
             mov cx, 20
@@ -1933,7 +1932,7 @@ MAP8:
             push cx           ; Save current row counter
             mov cx, 20         ; Set the column counter to 7
 
-        cols: 
+        cols:
             lodsb             ; Load byte at [si] into AL and increment SI
             cmp al, 5
             je exitDrawer
@@ -1946,7 +1945,7 @@ MAP8:
             cmp al, 1         ; Compare AL with 1
             je wall           ; Jump to 'wall' if AL == 1
             jmp floor         ; Otherwise, jump to 'floor'
-        
+
         exitDrawer:
             mov al, 8
             push di
@@ -1986,7 +1985,7 @@ MAP8:
             add di, 8*320-8*20
             pop cx              ; Restore the row counter
             loop rows           ; Decrement CX and loop back if not zero
-            
+
 
             popa
             ret
@@ -1995,7 +1994,7 @@ MAP8:
             push bp
             mov bp, sp
             pusha
-    
+
             mov di, [bp+4]
             mov cx, 8
 
@@ -2003,7 +2002,7 @@ MAP8:
             push cx
             push di
 
-            mov cx, 8 
+            mov cx, 8
             cld
             rep stosb
 
@@ -2011,8 +2010,8 @@ MAP8:
             pop cx
             add di, 320
             loop wallLoop
-            
-    
+
+
             popa
             pop bp
             ret 2
@@ -2048,11 +2047,11 @@ clearEnemy:
 clearEnemyLoop:
     push cx
     push di
-    
+
     mov cx, 8
     mov al, 1
     rep stosb
-    
+
     pop di
     pop cx
     add di, 320
@@ -2067,7 +2066,7 @@ drawEnemies:
     pusha
 
     ; Set up color 18 (Black with slight red tint for darkest parts)
-    mov dx, 0x03C8             
+    mov dx, 0x03C8
     mov al, 18
     out dx, al
     mov dx, 0x03C9
@@ -2101,14 +2100,14 @@ drawEnemies:
     out dx, al
     mov al, 0     ; Blue component
     out dx, al
-    
+
     mov di, [bp+4]
     mov si, enemy_SPRITE
     mov cx, 8
 rows_ENEMY:
     push cx
     mov cx, 8
-cols_ENEMY: 
+cols_ENEMY:
     lodsb
     cmp al, 1
     je fill3
@@ -2162,15 +2161,15 @@ player_SPRITE_R:
     db 0,1,1,1,1,1,0,0
 
 player_SPRITE_L:
-    db 0,0,1,1,1,0,0,0   
-    db 0,1,1,1,1,1,0,0   
-    db 0,1,1,1,1,1,1,0   
-    db 3,3,3,3,1,1,1,1   
-    db 3,2,2,2,3,1,1,1   
-    db 3,2,2,3,1,1,1,1   
-    db 0,1,1,1,1,1,1,1   
-    db 0,0,1,1,1,1,1,0   
-    
+    db 0,0,1,1,1,0,0,0
+    db 0,1,1,1,1,1,0,0
+    db 0,1,1,1,1,1,1,0
+    db 3,3,3,3,1,1,1,1
+    db 3,2,2,2,3,1,1,1
+    db 3,2,2,3,1,1,1,1
+    db 0,1,1,1,1,1,1,1
+    db 0,0,1,1,1,1,1,0
+
     clearPlayer:
             push bp
             mov bp, sp
@@ -2181,11 +2180,11 @@ player_SPRITE_L:
         clearLoop:
             push cx
             push di
-            
+
             mov cx, 8
             mov al ,1
             rep stosb
-            
+
             pop di
             pop cx
             add di, 320
@@ -2210,10 +2209,10 @@ player_SPRITE_L:
             mov al, 0                  ; Green: no green
             out dx, al
             mov al, 0                  ; Blue: no blue
-            out dx, al 
+            out dx, al
             mov di, [bp+4]
-            
-            mov dx, 0x03C8             
+
+            mov dx, 0x03C8
             mov al, 16                 ; Palette index 11 for light blue
             out dx, al
             mov dx, 0x03C9
@@ -2250,10 +2249,10 @@ player_SPRITE_L:
                 push cx
             mov cx, 8
 
-        cols_PLAYER: 
+        cols_PLAYER:
             lodsb
             cmp al, 1
-            je fill  
+            je fill
             cmp al, 2
             je face
             cmp al, 3
@@ -2282,8 +2281,8 @@ player_SPRITE_L:
             popa
             pop bp
             ret 2
-    
-    
+
+
     player_UP:
             pusha
             mov di, [playerPos]
@@ -2296,7 +2295,7 @@ player_SPRITE_L:
 
             cmp byte[es:si], 2
             je wallHitUp
-            
+
             cmp byte[es:si], 19
             je enemyHitUP
 
@@ -2304,18 +2303,18 @@ player_SPRITE_L:
 
             cmp byte[es:si], 13
             je collectableHitUP
-            
+
             jmp ValidUP
 
         collectableHitUP:
             call _inc_SCORE
             jmp ValidUP
-        
+
         exitHitUp:
             call ResetWin
         ValidUP:
             sub di, 8*320
-            
+
             push word[playerPos]
             call clearPlayer
 
@@ -2361,15 +2360,15 @@ player_SPRITE_L:
 
             cmp byte[es:si], 2
             je wallHitDown
-            
+
             cmp byte[es:si], 19
             je enemyHitDOWN
-            
+
             inc si
             cmp byte[es:si], 13
             je collectableHitDown
             jmp ValidDOWN
-            
+
         collectableHitDown:
             call _inc_SCORE
             jmp ValidDOWN
@@ -2386,14 +2385,14 @@ player_SPRITE_L:
             push word[playerPos]
             call drawPlayer
             jmp wallHitDown
-        
+
         enemyHitDOWN:
             cmp byte[supermanMode], 0
             je simple1
             push di
             call clearEnemy
             jmp wallHitDown
-        
+
         simple1:
             call _dec_LIFE
             cmp word[lives], 0
@@ -2419,15 +2418,15 @@ player_SPRITE_L:
 
             cmp byte[es:si], 2
             je wallHitLeft
-            
+
             add si, 3*320
-            
+
             cmp byte[es:si], 19
             je enemyHitLEFT
 
             cmp byte[es:si], 13
             je collectableHitLeft
-            
+
             jmp ValidLEFT
 
         collectableHitLeft:
@@ -2481,23 +2480,23 @@ player_SPRITE_L:
 
             cmp byte[es:si], 2
             je wallHitRight
-            
+
             add si, 2*320
-            
+
             cmp byte[es:si], 19
             je enemyHitRIGHT
-            
+
             add si, 320
 
             cmp byte[es:si], 13
             je collectableHitRight
-            
+
             jmp ValidRIGHT
 
         collectableHitRight:
             call _inc_SCORE
             jmp ValidRIGHT
-        
+
         exitHitRight:
             call Reset
 
@@ -2535,14 +2534,14 @@ player_SPRITE_L:
 ; ///////////////////////////////////////////////////////////////////
 ; //    Collectables Structure
 ; //    Initializing Collectables on the map
-; //    
+; //
 ; //    Key Features:
 ; //    - More than one initializations per map
 ; //    - Each collectable adds to the score of the player
 ; //    - Remove once collides with player
 ; ///////////////////////////////////////////////////////////////////
 Struct_COLLECTABLES:
-    
+
 
 collectablePos: dw  0
 
@@ -2555,14 +2554,14 @@ collectable_SPRITE:
     db 0,1,2,3,4,2,1,0   ; Bottom highlight
     db 0,0,1,2,2,1,0,0   ; Lower edge
     db 0,0,0,1,1,0,0,0   ; Thin outline at bottom
-            
+
         ; @prams
         ; bp+4 => position
     drawCollectable:
             push bp
             mov bp, sp
             pusha
-            
+
     ; Palette setup for gem colors (indices 10-13)
 mov dx, 0x03C8             ; Set palette index port
 mov al, 10                 ; Brightest blue (highlights)
@@ -2575,7 +2574,7 @@ out dx, al
 mov al, 63                 ; Blue: maximum brightness
 out dx, al
 
-mov dx, 0x03C8             
+mov dx, 0x03C8
 mov al, 11                 ; Light blue (main color)
 out dx, al
 mov dx, 0x03C9
@@ -2616,7 +2615,7 @@ mov cx, 8                  ; Height
 rows_COLLECT:
     push cx
     mov cx, 8              ; Width
-cols_COLLECT: 
+cols_COLLECT:
     lodsb                  ; Load pixel value
     cmp al, 0              ; Check for transparent pixel
     je noFill1
@@ -2652,7 +2651,7 @@ next_pix:
     popa
     pop bp
     ret 2
-    
+
     _init_COLLECTABLES:
             ret
 
@@ -2660,7 +2659,7 @@ next_pix:
             ret
 
 ; ///////////////////////////////////////////////////////////////////
-; //    Timer Structure    
+; //    Timer Structure
 ; //    Handles the Clock, Shown on the screen
 ; //
 ; //    Key Features:
@@ -2668,7 +2667,7 @@ next_pix:
 ; //    - Timer based scoring in the scoring system
 ; ///////////////////////////////////////////////////////////////////
 Struct_TIMER:
-    
+
     sec:    dw  59
     min:    dw  3
 
@@ -2676,7 +2675,7 @@ Struct_TIMER:
             mov word[sec], 59
             mov word[min], 3
             ret
-            
+
     ;   Gets called from timer INTERUPT hook
     ;   for increment in the time variable
     ;   every second.
@@ -2732,7 +2731,7 @@ Struct_TIMER:
 
     drawTimer:
             pusha
-            
+
             mov al, 1
             mov cx, 8
             mov di, (139*320)+230
@@ -2747,7 +2746,7 @@ Struct_TIMER:
             pop di
             add di, 320
             loop clearTimer
-        
+
             mov ax, [sec]
             mov bx, 10
             xor dx, dx
@@ -2760,7 +2759,7 @@ Struct_TIMER:
             mov dx, 139
             mov bl, 2
             call drawAlphabet
-            
+
             mov bx, 10
             xor dx, dx
             div bx
@@ -2788,7 +2787,7 @@ Struct_TIMER:
 
             popa
             ret
-            
+
 
 ; ///////////////////////////////////////////////////////////////////
 ; //    Score Structure
@@ -2922,7 +2921,7 @@ HEART:
     db  00011000b
     db  00010000b
     db  00000000b
-    
+
 
     score:      dw  0
     lives:      dw  3
@@ -2939,7 +2938,7 @@ HEART:
 
         cmp word[lives], 3
         je draw3L
-        
+
         cmp word[lives], 2
         je draw2L
 
@@ -2948,7 +2947,7 @@ HEART:
 
         cmp word[lives], 0
         je draw0L
-        
+
     draw3L:
         mov cx, 230+9*3
         mov dx, 100
@@ -2960,9 +2959,9 @@ HEART:
 
         sub cx, 9
         call drawAlphabet
-        
+
         jmp exitDrawL
-        
+
     draw2L:
         mov cx, 230+9*3
         mov dx, 100
@@ -2975,7 +2974,7 @@ HEART:
 
         sub cx, 9
         call drawAlphabet
-        
+
         jmp exitDrawL
 
     draw1L:
@@ -2990,7 +2989,7 @@ HEART:
         sub cx, 9
         mov bl, 6
         call drawAlphabet
-        
+
         jmp exitDrawL
 
     draw0L:
@@ -3004,11 +3003,11 @@ HEART:
 
         sub cx, 9
         call drawAlphabet
-        
+
     exitDrawL:
         popa
         ret
-    
+
     _dec_LIFE:
         dec word[lives]
         call drawLives
@@ -3017,10 +3016,10 @@ HEART:
     _inc_life:
         inc word[lives]
         ret
-    
+
     drawLivesText:
             pusha
-            
+
             mov ax, 0xA000
             mov es, ax
 
@@ -3051,7 +3050,7 @@ HEART:
 
     drawScoreText:
             pusha
-            
+
             mov ax, 0xA000
             mov es, ax
 
@@ -3081,26 +3080,26 @@ HEART:
             ret
 
 
-            ; @prams 
+            ; @prams
             ;   bp+4 => Score to Print
     drawScore:
             push bp
             mov bp, sp
             pusha
-        
+
             mov ax, 0xA000
             mov es, ax
-            
+
             mov di, 230+(59*320)
             mov cx, 8
         clearScore:
             push di
             push cx
-            
+
             mov cx, 9*3
             mov al, 1
             rep stosb
-            
+
             pop cx
             pop di
             add di, 320
@@ -3119,7 +3118,7 @@ HEART:
             mov dx, 60
             mov bl, 2
             call drawAlphabet
-            
+
             mov bx, 10
             xor dx, dx
             div bx
@@ -3141,7 +3140,7 @@ HEART:
             sub cx, 9
             mov bl, 2
             call drawAlphabet
-            
+
             popa
             pop bp
             ret 2
@@ -3151,7 +3150,7 @@ HEART:
             push bp
             mov bp, sp
             pusha
-            
+
             mov cx, [score]
             cmp cx, 0
             jz noSub
@@ -3159,29 +3158,29 @@ HEART:
             mov ax, [sec]
             mov bx, 50
             div bx
-            
+
             cmp cx, ax
             js noSub
 
             sub cx, ax
             mov [score], cx
-            
+
         noSub:
             push cx
             call drawScore
-            
+
             popa
             pop bp
             ret
-    
+
     _inc_SCORE:
             pusha
-            
+
             add word[score], 10
             push word[score]
             cmp word[lives], 3
             je done1
-            
+
             xor dx, dx
             mov ax, [score]
             mov bx, 30
@@ -3197,11 +3196,12 @@ HEART:
         done1:
             call drawScore
             popa
-            ret 
+            ret
 
-main:   
+main:
         call kbISR_MENU_hook
         call setVideoMode
         call drawMenu
         call timerISR_hook
         jmp $
+
